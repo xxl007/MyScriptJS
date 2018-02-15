@@ -101,7 +101,7 @@ bower install myscript
 <script src="https://code.jquery.com/pep/0.4.3/pep.js"></script>
 ```
 
-3. Always in the `head` section, add a `style` and specify the height and the width of your editor:
+3. Still in the `head` section, add a `style` and specify the height and the width of your editor:
 ```html
 <style>
     #editor {
