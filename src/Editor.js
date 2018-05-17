@@ -163,20 +163,22 @@ function recognizerCallback(editor, error, model, ...events) {
 
   const handleResult = (err, res, ...types) => {
     if (err) {
-      logger.error('Error while firing the recognition', err.stack || err); // Handle any error from all above steps
+      if (err.type !== 'close') {
+        logger.error('Error while firing the recognition', err.stack || err); // Handle any error from all above steps
+      }
       if ((err.message === 'Invalid application key.') || (err.message === 'Invalid HMAC') ||
-      (err.error &&
-        err.error.result &&
-        err.error.result.error &&
-        (err.error.result.error === 'InvalidApplicationKeyException' || err.error.result.error === 'InvalidHMACSignatureException')
-      )) {
+        (err.error &&
+          err.error.result &&
+          err.error.result.error &&
+          (err.error.result.error === 'InvalidApplicationKeyException' || err.error.result.error === 'InvalidHMACSignatureException')
+        )) {
         editorRef.error.innerText = Constants.Error.WRONG_CREDENTIALS;
       } else if (err.message === 'Session is too old. Max Session Duration Reached') {
         editorRef.error.innerText = Constants.Error.TOO_OLD;
       } else if (err.message && editorRef.error.style.display === 'none') {
         editorRef.error.innerText = Constants.Error.NOT_REACHABLE;
       }
-      if ((editorRef.error.innerText === Constants.Error.TOO_OLD || err.code === 1006) && RecognizerContext.canReconnect(editor.recognizerContext)) {
+      if ((editorRef.error.innerText === Constants.Error.TOO_OLD || err.code === 1006 || err.reason === 'CLOSE_RECOGNIZER') && RecognizerContext.canReconnect(editor.recognizerContext)) {
         logger.info('Reconnection is available', err.stack || err);
         editorRef.error.style.display = 'none';
       } else {

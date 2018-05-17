@@ -12,12 +12,12 @@
       "expectCount": 59,
       "actualCount": 53,
       "undocumentLines": [
-        416,
-        411,
-        495,
-        445,
-        596,
-        597
+        418,
+        413,
+        497,
+        447,
+        598,
+        599
       ]
     },
     "src/recognizer/websocket/v4/Cdkv4WSIInkRecognizer.js": {
