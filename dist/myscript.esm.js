@@ -87,7 +87,7 @@ var Constants = {
 var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 function unwrapExports (x) {
-	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x.default : x;
 }
 
 function createCommonjsModule(fn, module) {
@@ -2203,6 +2203,17 @@ function resetModelPositions(model) {
 }
 
 /**
+ * Reset model lastRenderedPosition
+ * @param {Model} model
+ * @return {Model}
+ */
+function resetModelRendererPosition(model) {
+  var modelReference = model;
+  modelReference.lastPositions.lastRenderedPosition = -1;
+  return modelReference;
+}
+
+/**
  * Update model lastRenderedPosition
  * @param {Model} model
  * @param {Number} [position]
@@ -2268,6 +2279,28 @@ function mergeModels() {
     return modelRef;
   });
 }
+
+var InkModel = /*#__PURE__*/Object.freeze({
+  createModel: createModel,
+  clearModel: clearModel,
+  needRedraw: needRedraw,
+  addStroke: addStroke,
+  addStrokeToGroup: addStrokeToGroup,
+  extractPendingStrokes: extractPendingStrokes,
+  initPendingStroke: initPendingStroke,
+  appendToPendingStroke: appendToPendingStroke,
+  endPendingStroke: endPendingStroke,
+  getBorderCoordinates: getBorderCoordinates,
+  extractStrokesFromInkRange: extractStrokesFromInkRange,
+  updateModelSentPosition: updateModelSentPosition,
+  updateModelReceivedPosition: updateModelReceivedPosition,
+  resetModelPositions: resetModelPositions,
+  resetModelRendererPosition: resetModelRendererPosition,
+  updateModelRenderedPosition: updateModelRenderedPosition,
+  extractPendingRecognizedSymbols: extractPendingRecognizedSymbols,
+  cloneModel: cloneModel,
+  mergeModels: mergeModels
+});
 
 /**
  * Renderer info
@@ -5447,7 +5480,8 @@ function xhr(type, url, data) {
       request.setRequestHeader('Content-Type', 'application/json');
     }
 
-    if (mimeType === pptxMimeType) {
+    var isBlobType = mimeType === pptxMimeType || mimeType.startsWith('image/png') || mimeType.startsWith('image/jpeg');
+    if (isBlobType) {
       request.responseType = 'blob';
     }
 
@@ -5457,7 +5491,7 @@ function xhr(type, url, data) {
 
     request.onload = function () {
       if (request.status >= 200 && request.status < 300) {
-        mimeType === pptxMimeType ? resolve(request.response) : resolve(parse(request));
+        isBlobType ? resolve(request.response) : resolve(parse(request));
       } else {
         reject(new Error(request.responseText));
       }
@@ -5466,7 +5500,7 @@ function xhr(type, url, data) {
     request.onreadystatechange = function () {
       if (request.readyState === 4) {
         if (request.status >= 200 && request.status < 300) {
-          mimeType === pptxMimeType ? resolve(request.response) : resolve(parse(request));
+          isBlobType ? resolve(request.response) : resolve(parse(request));
         }
       }
     };
@@ -5643,6 +5677,17 @@ var LOST_CONNEXION_MESSAGE = { type: 'LOST_CONNECTION' };
  * @type {String}
  */
 var CLOSE_RECOGNIZER_MESSAGE = 'CLOSE_RECOGNIZER';
+
+var RecognizerContext = /*#__PURE__*/Object.freeze({
+  createEmptyRecognizerContext: createEmptyRecognizerContext,
+  isResetRequired: isResetRequired,
+  updateRecognitionPositions: updateRecognitionPositions,
+  setRecognitionContext: setRecognitionContext,
+  canReconnect: canReconnect,
+  shouldAttemptImmediateReconnect: shouldAttemptImmediateReconnect,
+  LOST_CONNEXION_MESSAGE: LOST_CONNEXION_MESSAGE,
+  CLOSE_RECOGNIZER_MESSAGE: CLOSE_RECOGNIZER_MESSAGE
+});
 
 /**
  * @param {String} suffixUrl
@@ -6587,11 +6632,14 @@ function buildData(recognizerContext, model, conversionState) {
     xDPI: 96,
     yDPI: 96,
     contentType: contentType,
-    height: recognizerContext.editor.domElement.clientHeight,
-    width: recognizerContext.editor.domElement.clientWidth,
     theme: toCSS$1(recognizerContext.editor.theme),
     strokeGroups: newStrokes
   };
+
+  if (recognizerContext.editor.domElement) {
+    data.height = recognizerContext.editor.domElement.clientHeight;
+    data.width = recognizerContext.editor.domElement.clientWidth;
+  }
 
   if (conversionState) {
     data.conversionState = 'DIGITAL_EDIT';
@@ -6603,32 +6651,7 @@ function buildData(recognizerContext, model, conversionState) {
 
 function extractExports$4(configuration, mimeType, res) {
   var exports = {};
-  if (mimeType === 'application/vnd.myscript.jiix') {
-    exports['application/vnd.myscript.jiix'] = res;
-  }
-  if (configuration.recognitionParams.type === 'TEXT' && mimeType === 'text/plain') {
-    exports['text/plain'] = res;
-  } else if (configuration.recognitionParams.type === 'DIAGRAM') {
-    if (mimeType === 'image/svg+xml') {
-      exports['image/svg+xml'] = res;
-    }
-    if (mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-      exports['application/vnd.openxmlformats-officedocument.presentationml.presentation'] = res;
-    }
-    if (mimeType === 'application/vnd.microsoft.art-gvml-clipformat') {
-      exports['application/vnd.microsoft.art-gvml-clipformat'] = res;
-    }
-  } else if (configuration.recognitionParams.type === 'MATH') {
-    if (mimeType === 'application/x-latex') {
-      exports['application/x-latex'] = res;
-    }
-    if (mimeType === 'application/mathml+xml') {
-      exports['application/mathml+xml'] = res;
-    }
-    if (mimeType === 'application/mathofficeXML') {
-      exports['application/mathofficeXML'] = res;
-    }
-  }
+  exports[mimeType] = res;
   return exports;
 }
 
@@ -6650,19 +6673,24 @@ function resultCallback$5(model, configuration, res, mimeType, callback) {
  * @param {RecognizerContext} recognizerContext Current recognizer context
  * @param {Model} model Current model
  * @param {RecognizerCallback} callback
+ * @param {Array[String]} requestedMimeTypes
  */
-function export_$5(recognizerContext, model, callback) {
+function export_$5(recognizerContext, model, callback, requestedMimeTypes) {
   var configuration = recognizerContext.editor.configuration;
 
   function callPostMessage(mimeType) {
     postMessage$1('/api/v4.0/iink/batch', recognizerContext, model, buildData, configuration.restConversionState, mimeType).then(function (res) {
-      return resultCallback$5(model, configuration, res, mimeType, callback);
+      resultCallback$5(model, configuration, res, mimeType, callback);
     }).catch(function (err) {
-      return callback(err, model);
+      callback(err, model);
     });
   }
 
-  if (configuration.recognitionParams.type === 'TEXT') {
+  if (requestedMimeTypes) {
+    requestedMimeTypes.forEach(function (mimeType) {
+      callPostMessage(mimeType);
+    });
+  } else if (configuration.recognitionParams.type === 'TEXT') {
     configuration.recognitionParams.v4.text.mimeTypes.forEach(function (mimeType) {
       callPostMessage(mimeType);
     });
@@ -8763,8 +8791,8 @@ function getImage(model, stroker) {
 }
 
 /*!
- * perfect-scrollbar v1.3.0
- * (c) 2017 Hyunje Jun
+ * perfect-scrollbar v1.4.0
+ * (c) 2018 Hyunje Jun
  * @license MIT
  */
 function get$2(element) {
@@ -8792,6 +8820,7 @@ var elMatches =
   typeof Element !== 'undefined' &&
   (Element.prototype.matches ||
     Element.prototype.webkitMatchesSelector ||
+    Element.prototype.mozMatchesSelector ||
     Element.prototype.msMatchesSelector);
 
 function matches(element, query) {
@@ -8826,6 +8855,7 @@ var cls = {
   },
   state: {
     focus: 'ps--focus',
+    clicking: 'ps--clicking',
     active: function (x) { return ("ps--active-" + x); },
     scrolling: function (x) { return ("ps--scrolling-" + x); },
   },
@@ -9080,6 +9110,7 @@ var env = {
 
 var updateGeometry = function(i) {
   var element = i.element;
+  var roundedScrollTop = Math.floor(element.scrollTop);
 
   i.containerWidth = element.clientWidth;
   i.containerHeight = element.clientHeight;
@@ -9131,7 +9162,7 @@ var updateGeometry = function(i) {
       toInt(i.railYHeight * i.containerHeight / i.contentHeight)
     );
     i.scrollbarYTop = toInt(
-      element.scrollTop *
+      roundedScrollTop *
         (i.railYHeight - i.scrollbarYHeight) /
         (i.contentHeight - i.containerHeight)
     );
@@ -9178,6 +9209,8 @@ function getThumbSize(i, thumbSize) {
 
 function updateCss(element, i) {
   var xRailOffset = { width: i.railXWidth };
+  var roundedScrollTop = Math.floor(element.scrollTop);
+
   if (i.isRtl) {
     xRailOffset.left =
       i.negativeScrollAdjustment +
@@ -9188,13 +9221,13 @@ function updateCss(element, i) {
     xRailOffset.left = element.scrollLeft;
   }
   if (i.isScrollbarXUsingBottom) {
-    xRailOffset.bottom = i.scrollbarXBottom - element.scrollTop;
+    xRailOffset.bottom = i.scrollbarXBottom - roundedScrollTop;
   } else {
-    xRailOffset.top = i.scrollbarXTop + element.scrollTop;
+    xRailOffset.top = i.scrollbarXTop + roundedScrollTop;
   }
   set$1(i.scrollbarXRail, xRailOffset);
 
-  var yRailOffset = { top: element.scrollTop, height: i.railYHeight };
+  var yRailOffset = { top: roundedScrollTop, height: i.railYHeight };
   if (i.isScrollbarYUsingRight) {
     if (i.isRtl) {
       yRailOffset.right =
@@ -9269,7 +9302,8 @@ var dragThumb = function(i) {
     'scrollbarX',
     'scrollbarXWidth',
     'scrollLeft',
-    'x' ]);
+    'x',
+    'scrollbarXRail' ]);
   bindMouseScrollHandler(i, [
     'containerHeight',
     'contentHeight',
@@ -9278,7 +9312,8 @@ var dragThumb = function(i) {
     'scrollbarY',
     'scrollbarYHeight',
     'scrollTop',
-    'y' ]);
+    'y',
+    'scrollbarYRail' ]);
 };
 
 function bindMouseScrollHandler(
@@ -9293,6 +9328,7 @@ function bindMouseScrollHandler(
   var scrollbarYHeight = ref[5];
   var scrollTop = ref[6];
   var y = ref[7];
+  var scrollbarYRail = ref[8];
 
   var element = i.element;
 
@@ -9312,6 +9348,7 @@ function bindMouseScrollHandler(
 
   function mouseUpHandler() {
     removeScrollingClass(i, y);
+    i[scrollbarYRail].classList.remove(cls.state.clicking);
     i.event.unbind(i.ownerDocument, 'mousemove', mouseMoveHandler);
   }
 
@@ -9325,6 +9362,8 @@ function bindMouseScrollHandler(
     i.event.bind(i.ownerDocument, 'mousemove', mouseMoveHandler);
     i.event.once(i.ownerDocument, 'mouseup', mouseUpHandler);
 
+    i[scrollbarYRail].classList.add(cls.state.clicking);
+
     e.stopPropagation();
     e.preventDefault();
   });
@@ -9337,7 +9376,7 @@ var keyboard = function(i) {
   var scrollbarFocused = function () { return matches(i.scrollbarX, ':focus') || matches(i.scrollbarY, ':focus'); };
 
   function shouldPreventDefault(deltaX, deltaY) {
-    var scrollTop = element.scrollTop;
+    var scrollTop = Math.floor(element.scrollTop);
     if (deltaX === 0) {
       if (!i.scrollbarYActive) {
         return false;
@@ -9478,12 +9517,13 @@ var wheel = function(i) {
   var element = i.element;
 
   function shouldPreventDefault(deltaX, deltaY) {
+    var roundedScrollTop = Math.floor(element.scrollTop);
     var isTop = element.scrollTop === 0;
     var isBottom =
-      element.scrollTop + element.offsetHeight === element.scrollHeight;
+      roundedScrollTop + element.offsetHeight === element.scrollHeight;
     var isLeft = element.scrollLeft === 0;
     var isRight =
-      element.scrollLeft + element.offsetWidth === element.offsetWidth;
+      element.scrollLeft + element.offsetWidth === element.scrollWidth;
 
     var hitsBound;
 
@@ -9559,7 +9599,7 @@ var wheel = function(i) {
             return true;
           }
         }
-        var maxScrollLeft = cursor.scrollLeft - cursor.clientWidth;
+        var maxScrollLeft = cursor.scrollWidth - cursor.clientWidth;
         if (maxScrollLeft > 0) {
           if (
             !(cursor.scrollLeft === 0 && deltaX < 0) &&
@@ -9635,7 +9675,7 @@ var touch$1 = function(i) {
   var element = i.element;
 
   function shouldPrevent(deltaX, deltaY) {
-    var scrollTop = element.scrollTop;
+    var scrollTop = Math.floor(element.scrollTop);
     var scrollLeft = element.scrollLeft;
     var magnitudeX = Math.abs(deltaX);
     var magnitudeY = Math.abs(deltaY);
@@ -9849,7 +9889,7 @@ var defaultSettings = function () { return ({
   suppressScrollY: false,
   swipeEasing: true,
   useBothWheelAxes: false,
-  wheelPropagation: false,
+  wheelPropagation: true,
   wheelSpeed: 1,
 }); };
 
@@ -9980,7 +10020,7 @@ var PerfectScrollbar = function PerfectScrollbar(element, userSettings) {
 
   this.settings.handlers.forEach(function (handlerName) { return handlers[handlerName](this$1); });
 
-  this.lastScrollTop = element.scrollTop; // for onScroll only
+  this.lastScrollTop = Math.floor(element.scrollTop); // for onScroll only
   this.lastScrollLeft = element.scrollLeft; // for onScroll only
   this.event.bind(this.element, 'scroll', function (e) { return this$1.onScroll(e); });
   updateGeometry(this);
@@ -10032,7 +10072,7 @@ PerfectScrollbar.prototype.onScroll = function onScroll (e) {
     this.element.scrollLeft - this.lastScrollLeft
   );
 
-  this.lastScrollTop = this.element.scrollTop;
+  this.lastScrollTop = Math.floor(this.element.scrollTop);
   this.lastScrollLeft = this.element.scrollLeft;
 };
 
@@ -11136,7 +11176,7 @@ function createSmartGuide(editor) {
    * @type {Clipboard}
    */
   var clipboard$$1 = new Clipboard(elements.copyElement);
-  var perfectScrollbar = new PerfectScrollbar(elements.textContainer, { suppressScrollY: true });
+  var perfectScrollbar = new PerfectScrollbar(elements.textContainer, { suppressScrollY: true, scrollXMarginOffset: 1 });
 
   var smartGuide = {
     editor: editor,
@@ -11423,6 +11463,21 @@ function inkImporter(editorParam, strokes, delayBetweenStrokes, lastOneDelay) {
   };
   play(actions, 0, delayBetweenStrokes);
 }
+
+function importStrokeGroups(editorParam, strokeGroups) {
+  strokeGroups.forEach(function (group) {
+    group.strokes.forEach(function (strokeFromGroup) {
+      addStroke(editorParam.model, strokeFromGroup);
+      addStrokeToGroup(editorParam.model, strokeFromGroup, group.penStyle);
+    });
+  });
+  editorParam.renderer.drawModel(editorParam.rendererContext, editorParam.model, editorParam.stroker);
+}
+
+var eastereggs = /*#__PURE__*/Object.freeze({
+  inkImporter: inkImporter,
+  importStrokeGroups: importStrokeGroups
+});
 
 /* eslint-disable no-underscore-dangle */
 
@@ -12075,6 +12130,13 @@ var Editor = function () {
         launchExport(this, this.model);
       }
     }
+
+    /**
+     * @Deprecated
+     * @param rawStrokes
+     * @param strokeGroups
+     */
+
   }, {
     key: 'reDraw',
     value: function reDraw(rawStrokes, strokeGroups) {
@@ -12314,10 +12376,35 @@ var Editor = function () {
       };
     }
 
+    /**
+     * Detach event listeners from the DOM element created at editor creation.
+     */
+
+  }, {
+    key: 'unload',
+    value: function unload() {
+      if (this.grabber) {
+        // Remove event handlers to avoid multiplication (detach grabber)
+        this.grabber.detach(this.domElement, this.grabberContext);
+      }
+      if (this.innerRenderer) {
+        this.innerRenderer.detach(this.domElement, this.rendererContext);
+      }
+    }
+
+    /**
+     * Trigger the change callbacks (and by default send a change event).
+     */
+
+  }, {
+    key: 'forceChange',
+    value: function forceChange() {
+      triggerCallbacks(this, undefined, Constants.EventType.CHANGED);
+    }
+
     /* eslint-disable class-methods-use-this */
     /**
      * Get access to some easter egg features link ink injection. Use at your own risk (less tested and may be removed without notice).
-     * @returns {{inkImporter: inkImporter}}
      */
 
   }, {
@@ -12707,7 +12794,7 @@ var Editor = function () {
   }, {
     key: 'eastereggs',
     get: function get$$1() {
-      return { inkImporter: inkImporter };
+      return eastereggs;
     }
     /* eslint-enable class-methods-use-this */
 
@@ -12761,15 +12848,21 @@ function getAvailableLanguageList(configuration) {
 
 var MyScript = {
   Constants: Constants,
-  LoggerConfig: log,
-  Editor: Editor,
+  // Default instantiations
   DefaultConfiguration: defaultConfiguration,
+  DefaultBehaviors: defaultBehaviors,
   DefaultPenStyle: defaultPenStyle,
   DefaultTheme: defaultTheme,
+  // Helper functions
   register: register,
-  getAvailableLanguageList: getAvailableLanguageList
+  getAvailableLanguageList: getAvailableLanguageList,
+  // Internals
+  LoggerConfig: log,
+  Editor: Editor,
+  InkModel: InkModel,
+  RecognizerContext: RecognizerContext
 };
 
 export default MyScript;
-export { Constants, log as LoggerConfig, Editor, defaultConfiguration as DefaultConfiguration, defaultPenStyle as DefaultPenStyle, defaultTheme as DefaultTheme, register, getAvailableLanguageList };
+export { Constants, defaultConfiguration as DefaultConfiguration, defaultBehaviors as DefaultBehaviors, defaultPenStyle as DefaultPenStyle, defaultTheme as DefaultTheme, register, getAvailableLanguageList, log as LoggerConfig, Editor, InkModel, RecognizerContext };
 //# sourceMappingURL=myscript.esm.js.map
