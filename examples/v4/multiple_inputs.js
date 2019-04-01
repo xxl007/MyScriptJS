@@ -20,7 +20,7 @@ const mainElement = document.getElementById('mainContent');
 const inputs = [];
 const inputValues = new Map();
 
-for (let i = 1; i < 5; i++) {
+for (let i = 1; i < 2; i++) {
   inputs[i] = document.createElement('div');
   inputs[i].id = `input${i}`;
   inputs[i].setAttribute('touch-action', 'none');
@@ -277,8 +277,8 @@ function initEditors(editors) {
         server: {
           scheme: 'https',
           host: 'webdemoapi.myscript.com',
-          applicationKey: '515131ab-35fa-411c-bb4d-3917e00faf60',
-          hmacKey: '54b2ca8a-6752-469d-87dd-553bb450e9ad'
+          applicationKey: '3202b0ca-3f2a-4d1a-a519-849642f51637',
+          hmacKey: 'e7d90130-11cf-4051-9965-3a96f77c2ed9'
         },
         v4: {
           text: {
