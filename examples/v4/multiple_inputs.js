@@ -29,7 +29,7 @@ for (let i = 1; i < 2; i++) {
 
   const label = document.createElement('label');
   label.setAttribute('for', inputs[i].id);
-  label.innerText = `Input N°${i}`;
+  label.innerText = `Ecrivez-ci dessous`;
 
   mainElement.appendChild(label);
   mainElement.appendChild(inputs[i]);
